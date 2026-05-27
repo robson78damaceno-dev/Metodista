@@ -153,10 +153,12 @@ git push -u origin main
 | `AUTH_SECRET` | segredo longo (único) |
 | `CODE_HASH_SECRET` | outro segredo longo |
 | `CSRF_SECRET` | terceiro segredo longo |
-| `SEED_ADMIN_LOGIN` | ex.: `admin` |
-| `SEED_ADMIN_PASSWORD` | **senha forte** em produção |
+| `SEED_ADMIN_LOGIN` | ex.: `admin` — **obrigatório** na 1ª vez |
+| `SEED_ADMIN_PASSWORD` | ex.: senha forte (mín. 6 caracteres) — **obrigatório** na 1ª vez |
 
 Marque **Production** (e **Preview** se quiser testar branches).
+
+**Atenção:** se `SEED_ADMIN_PASSWORD` (ou qualquer variável da tabela) não estiver na Vercel, o deploy falha no build com erro `invalid_type` / `expected string, received undefined`.
 
 ### O que NÃO definir em produção
 
@@ -195,6 +197,7 @@ Clique **Deploy** e acompanhe os logs.
 
 | Sintoma | Causa provável | Solução |
 |---------|----------------|---------|
+| `ZodError` / `SEED_ADMIN_PASSWORD` undefined | Variável ausente na Vercel | Adicione **todas** as vars da tabela; marque **Production**; **Redeploy** |
 | `ZodError` em `env.ts` | Variável ausente ou formato inválido | Revise todas as vars da tabela acima |
 | `EMAIL_FROM` inválido | Formato sem `<email@dominio>` | Use `Nome <email@dominio.com>` |
 | `APP_URL` inválido | Sem `https://` ou com barra final | Use `https://dominio.com` sem `/` no fim |

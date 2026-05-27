@@ -1,7 +1,7 @@
 import "server-only";
 
 import bcrypt from "bcryptjs";
-import { env } from "@/lib/env";
+import { requireSeedAdminCredentials } from "@/lib/env";
 import { redis } from "@/lib/redis";
 
 const ADMIN_CREDENTIALS_KEY = "admin:credentials";
@@ -46,9 +46,10 @@ export async function ensureAdminCredentials() {
   const existing = await readAdminCredentials();
   if (existing) return existing;
 
+  const { login, password } = requireSeedAdminCredentials();
   const seeded: AdminCredentialsRecord = {
-    email: env.SEED_ADMIN_LOGIN,
-    passwordHash: await bcrypt.hash(env.SEED_ADMIN_PASSWORD, BCRYPT_ROUNDS),
+    email: login,
+    passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
     updatedAt: new Date().toISOString()
   };
   await redis.set(ADMIN_CREDENTIALS_KEY, JSON.stringify(seeded));
