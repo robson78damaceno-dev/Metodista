@@ -139,9 +139,15 @@ git push -u origin main
 
 ## Passo 6 — Variáveis de ambiente na Vercel
 
-1. [vercel.com](https://vercel.com) → **Add New → Project**.
-2. Importe o repositório do Concilio.
-3. Antes do primeiro deploy, abra **Environment Variables** e adicione:
+**O `.env` local não vai para o GitHub.** Copie os valores dele para a Vercel. Guia visual: **[VERCEL_VARIAVEIS.md](VERCEL_VARIAVEIS.md)**.
+
+1. [vercel.com](https://vercel.com) → seu projeto.
+2. **Settings → Environment Variables**.
+3. Adicione cada variável do seu `.env` local (valor **sem aspas**).
+4. Em **cada** variável, marque **Production** — se marcar só Development, o build falha.
+5. Depois de salvar todas, faça **Redeploy** (Deployments → ⋮ → Redeploy).
+
+Na importação de um projeto novo, você também pode colar as variáveis antes do primeiro deploy:
 
 | Variável | Exemplo / notas |
 |----------|-----------------|
