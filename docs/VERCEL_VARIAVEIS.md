@@ -50,7 +50,9 @@ Em **Settings → Environment Variables** devem aparecer **10 variáveis** com P
 Variáveis de ambiente inválidas ou ausentes (UPSTASH_REDIS_REST_URL, ...)
 ```
 
-Significa: a Vercel **não recebeu** esses valores no build. Não é falta de `.env` no Git — é falta de cadastro no painel (ou Production não marcado).
+Significa: a Vercel **não recebeu** esses valores. Não é falta de `.env` no Git — é falta de cadastro no painel (ou **Production** não marcado).
+
+O deploy pode **compilar** mesmo assim, mas o site **não funciona** até você cadastrar todas as variáveis e fazer **Redeploy**.
 
 ## Por que NÃO commitar o .env no GitHub?
 
