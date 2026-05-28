@@ -70,6 +70,12 @@ class MemoryRedis {
     return 1;
   }
 
+  async srem(key: string, member: string) {
+    const entry = this.cleanup(key);
+    if (!entry || entry.kind !== "set") return 0;
+    return entry.value.delete(member) ? 1 : 0;
+  }
+
   async smembers(key: string): Promise<string[]> {
     const entry = this.cleanup(key);
     if (!entry || entry.kind !== "set") return [];

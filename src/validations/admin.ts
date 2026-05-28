@@ -33,6 +33,11 @@ export const changeElectionStatusSchema = z.object({
   csrfToken: z.string().min(16)
 });
 
+export const deleteElectionSchema = z.object({
+  electionId: z.union([uuidSchema, z.literal("ALL_CLOSED")]),
+  csrfToken: z.string().min(16)
+});
+
 export const changeAdminAccountSchema = z
   .object({
     currentPassword: z.string().min(8, "Informe a senha atual."),

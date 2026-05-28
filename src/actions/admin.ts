@@ -6,6 +6,8 @@ import { sendElectionResultsEmail } from "@/lib/mailer";
 import {
   closeOtherOpenElections,
   createElection,
+  deleteClosedElections,
+  deleteElection,
   getElectionResult,
   saveCandidate,
   setElectionStatus,
@@ -15,7 +17,12 @@ import { requireAdminSession } from "@/lib/auth";
 import { debugError, debugLog, logStorageContext } from "@/lib/debug-log";
 import { sanitizeText } from "@/lib/sanitize";
 import type { ActionState } from "@/types/actions";
-import { candidateSchema, changeElectionStatusSchema, electionSchema } from "@/validations/admin";
+import {
+  candidateSchema,
+  changeElectionStatusSchema,
+  deleteElectionSchema,
+  electionSchema
+} from "@/validations/admin";
 
 export async function saveElectionAction(_: ActionState, formData: FormData): Promise<ActionState> {
   const isCreate = !formData.get("id");
@@ -150,6 +157,32 @@ export async function changeElectionStatusAction(_: ActionState, formData: FormD
   } catch (error) {
     debugError("changeElectionStatusAction: erro", error);
     return { ok: false, message: getErrorMessage(error, "Não foi possível alterar o status.") };
+  }
+}
+
+export async function deleteElectionAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const admin = await requireAdminSession();
+    const parsed = deleteElectionSchema.parse(Object.fromEntries(formData));
+    await assertCsrfToken(parsed.csrfToken);
+
+    if (parsed.electionId === "ALL_CLOSED") {
+      const removed = await deleteClosedElections();
+      await audit(admin.sub, "election.delete-history", { removed });
+      revalidatePath("/admin");
+      return {
+        ok: true,
+        message: removed > 0 ? `Histórico excluído (${removed} eleição(ões)).` : "Não há histórico para excluir."
+      };
+    }
+
+    await deleteElection(parsed.electionId);
+    await audit(admin.sub, "election.delete", { electionId: parsed.electionId });
+    revalidatePath("/admin");
+    return { ok: true, message: "Eleição excluída do histórico." };
+  } catch (error) {
+    debugError("deleteElectionAction: erro", error);
+    return { ok: false, message: getErrorMessage(error, "Não foi possível excluir.") };
   }
 }
 

@@ -12,6 +12,7 @@ export type AppRedis = {
   set(key: string, value: unknown, options?: SetOptions): Promise<string | null>;
   get<T>(key: string): Promise<T | null>;
   sadd(key: string, member: string): Promise<number>;
+  srem(key: string, member: string): Promise<number>;
   smembers(key: string): Promise<string[]>;
   scard(key: string): Promise<number>;
   expire(key: string, seconds: number): Promise<number>;

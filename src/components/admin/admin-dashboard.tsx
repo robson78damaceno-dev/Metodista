@@ -5,8 +5,13 @@ import type { InputHTMLAttributes } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { ChevronDown, Download, KeyRound, LogOut, Mail, Plus, Save, Shield, Vote } from "lucide-react";
-import { changeElectionStatusAction, saveCandidateAction, saveElectionAction } from "@/actions/admin";
+import { ChevronDown, Download, KeyRound, LogOut, Mail, Plus, Save, Shield, Trash2, Vote } from "lucide-react";
+import {
+  changeElectionStatusAction,
+  deleteElectionAction,
+  saveCandidateAction,
+  saveElectionAction
+} from "@/actions/admin";
 import { changeAdminAccountAction, logoutAdminAction } from "@/actions/auth";
 import { MethodistBrand } from "@/components/methodist-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -133,8 +138,9 @@ export function AdminDashboard({
             </summary>
             <div className="space-y-2 border-t px-3 pb-3 pt-2">
               {closedElections.map((election) => (
-                <ClosedElectionRow key={election.id} election={election} />
+                <ClosedElectionRow key={election.id} election={election} csrfToken={csrfToken} />
               ))}
+              <ClearHistoryButton csrfToken={csrfToken} />
             </div>
           </details>
         ) : null}
@@ -360,19 +366,70 @@ function ActiveElectionPanel({ election, csrfToken }: { election: Election; csrf
   );
 }
 
-function ClosedElectionRow({ election }: { election: Election }) {
+function ClosedElectionRow({ election, csrfToken }: { election: Election; csrfToken: string }) {
+  const [state, action] = useActionState(deleteElectionAction, initialActionState);
+  useRefreshOnActionSuccess(state);
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-background/50 px-3 py-2 text-sm">
-      <div className="min-w-0">
-        <p className="truncate font-medium">{election.title}</p>
-        <p className="text-xs text-muted-foreground">
-          {election.totalVotes} votos · {election.candidates.length} candidato(s)
-        </p>
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-background/50 px-3 py-2 text-sm">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{election.title}</p>
+          <p className="text-xs text-muted-foreground">
+            {election.totalVotes} votos · {election.candidates.length} candidato(s)
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <a href={`/api/admin/elections/${election.id}/results`}>PDF</a>
+          </Button>
+          <form action={action}>
+            <input type="hidden" name="csrfToken" value={csrfToken} />
+            <input type="hidden" name="electionId" value={election.id} />
+            <DeleteButton label="Excluir" />
+          </form>
+        </div>
       </div>
-      <Button asChild variant="outline" size="sm">
-        <a href={`/api/admin/elections/${election.id}/results`}>PDF</a>
-      </Button>
+      {state.message ? <ActionMessage state={state} /> : null}
     </div>
+  );
+}
+
+function ClearHistoryButton({ csrfToken }: { csrfToken: string }) {
+  const [state, action] = useActionState(deleteElectionAction, initialActionState);
+  useRefreshOnActionSuccess(state);
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <div className="space-y-2 border-t pt-2">
+      {confirming ? (
+        <form action={action} className="flex flex-wrap items-center gap-2">
+          <input type="hidden" name="csrfToken" value={csrfToken} />
+          <input type="hidden" name="electionId" value="ALL_CLOSED" />
+          <span className="text-xs text-muted-foreground">Excluir todo o histórico? Esta ação é permanente.</span>
+          <DeleteButton label="Confirmar exclusão" />
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(false)}>
+            Cancelar
+          </Button>
+        </form>
+      ) : (
+        <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(true)}>
+          <Trash2 className="h-4 w-4" />
+          Limpar histórico
+        </Button>
+      )}
+      {state.message ? <ActionMessage state={state} /> : null}
+    </div>
+  );
+}
+
+function DeleteButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="destructive" size="sm" disabled={pending}>
+      <Trash2 className="h-4 w-4" />
+      {pending ? "Excluindo..." : label}
+    </Button>
   );
 }
 

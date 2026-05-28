@@ -300,6 +300,35 @@ export async function getOpenElection() {
   return open[0];
 }
 
+export async function deleteElection(electionId: string) {
+  const cpfHashes = await redis.smembers(electionCpfUsedSetKey(electionId));
+  for (const cpfHash of cpfHashes) {
+    await redis.del(electionCpfUsedKey(electionId, cpfHash));
+    await redis.del(electionCpfTicketKey(electionId, cpfHash));
+  }
+
+  await redis.del(electionMetaKey(electionId));
+  await redis.del(electionCandidatesKey(electionId));
+  await redis.del(electionVotesCountKey(electionId));
+  await redis.del(electionFeedbacksKey(electionId));
+  await redis.del(electionBallotsSpentKey(electionId));
+  await redis.del(electionLinksIssuedKey(electionId));
+  await redis.del(electionCpfUsedSetKey(electionId));
+  await redis.srem(electionIndexKey(), electionId);
+
+  debugLog("deleteElection", { electionId });
+}
+
+export async function deleteClosedElections() {
+  const elections = await listElections();
+  const closed = elections.filter((election) => election.status === "CLOSED");
+  for (const election of closed) {
+    await deleteElection(election.id);
+  }
+  debugLog("deleteClosedElections", { removed: closed.length });
+  return closed.length;
+}
+
 export async function closeOtherOpenElections(exceptElectionId: string) {
   const elections = await listElections();
   for (const election of elections) {
