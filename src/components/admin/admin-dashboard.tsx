@@ -270,6 +270,8 @@ function CreateElectionDialog({
 
 function ActiveElectionPanel({ election, csrfToken }: { election: Election; csrfToken: string }) {
   const [tab, setTab] = useState<ElectionTab>("overview");
+  const activeCandidateCount = election.candidates.filter((candidate) => candidate.active).length;
+  const needsCandidates = activeCandidateCount === 0;
 
   return (
     <Card>
@@ -310,6 +312,14 @@ function ActiveElectionPanel({ election, csrfToken }: { election: Election; csrf
       </CardHeader>
 
       <CardContent className="space-y-4 pt-0">
+        {needsCandidates ? (
+          <Alert variant="destructive">
+            <AlertDescription className="text-sm">
+              Cadastre pelo menos um candidato ativo na aba <strong>Candidatos</strong> antes de abrir a votação ou
+              enviar links por e-mail. Sem candidatos, o eleitor é redirecionado para a página inicial.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {tab === "overview" ? (
           <>
             <div className="grid grid-cols-3 gap-2 text-center">

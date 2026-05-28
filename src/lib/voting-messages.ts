@@ -5,7 +5,8 @@ const HOME_ERROR_MESSAGES: Record<string, string> = {
   "link-expirado": "Este link expirou ou já foi utilizado. Solicite um novo acesso com seu CPF.",
   "link-invalido": "Link de votação inválido.",
   "votacao-fechada": "A votação não está aberta no momento.",
-  "sem-candidatos": "A votação ainda não possui candidatos ativos."
+  "sem-candidatos":
+    "A votação ainda não está pronta: o administrador precisa cadastrar candidatos ativos antes de abrir a eleição. Se você já recebeu este link, solicite um novo após a correção."
 };
 
 export function homeErrorMessage(code?: string | null) {

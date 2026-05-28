@@ -51,7 +51,7 @@ export type CandidateDecision = {
 
 export type IssueLinkResult =
   | { ok: true; url: string; resent: boolean }
-  | { ok: false; reason: "already_voted" | "election_closed" | "not_found" };
+  | { ok: false; reason: "already_voted" | "election_closed" | "no_candidates" | "not_found" };
 
 function electionMetaKey(electionId: string) {
   return `election:${electionId}:meta`;
@@ -122,11 +122,46 @@ async function writeElectionMeta(electionId: string, meta: ElectionMeta) {
   await redis.set(electionMetaKey(electionId), meta, { ex: DEFAULT_TTL_SECONDS });
 }
 
+function normalizeCandidateActive(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
+  }
+  return true;
+}
+
+function normalizeCandidate(candidate: ElectionCandidate): ElectionCandidate {
+  return {
+    ...candidate,
+    active: normalizeCandidateActive(candidate.active)
+  };
+}
+
 async function getElectionCandidates(electionId: string): Promise<ElectionCandidate[]> {
   const raw = await redis.get<unknown>(electionCandidatesKey(electionId));
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw as ElectionCandidate[];
-  return decodeJson<ElectionCandidate[]>(raw) ?? [];
+  const list = Array.isArray(raw) ? (raw as ElectionCandidate[]) : (decodeJson<ElectionCandidate[]>(raw) ?? []);
+  return list.map(normalizeCandidate);
+}
+
+export function getActiveCandidates(candidates: ElectionCandidate[]) {
+  return candidates.filter((candidate) => normalizeCandidateActive(candidate.active));
+}
+
+export async function countActiveCandidates(electionId: string) {
+  const candidates = await getElectionCandidates(electionId);
+  return getActiveCandidates(candidates).length;
+}
+
+export async function assertElectionCanOpen(electionId: string) {
+  const activeCount = await countActiveCandidates(electionId);
+  if (activeCount === 0) {
+    throw new Error(
+      "Cadastre pelo menos um candidato ativo antes de abrir a votação (aba Candidatos no painel admin)."
+    );
+  }
 }
 
 /** Mantém só a eleição ativa mais recente; encerra duplicatas de testes/deploy. */
@@ -294,6 +329,11 @@ export async function updateElection(
 export async function setElectionStatus(electionId: string, status: ElectionStatus) {
   const current = await getElectionMeta(electionId);
   if (!current) return null;
+
+  if (status === "OPEN") {
+    await assertElectionCanOpen(electionId);
+  }
+
   const now = new Date().toISOString();
   const updated: ElectionMeta = {
     ...current,
@@ -344,6 +384,10 @@ export async function issueVotingLinkForCpf(electionId: string, cpfHash: string)
     return { ok: false, reason: "election_closed" };
   }
 
+  if ((await countActiveCandidates(electionId)) === 0) {
+    return { ok: false, reason: "no_candidates" };
+  }
+
   if (await redis.get(electionCpfUsedKey(electionId, cpfHash))) {
     return { ok: false, reason: "already_voted" };
   }
@@ -376,15 +420,19 @@ export async function issueVotingLinkForCpf(electionId: string, cpfHash: string)
 
 export type ConsumeTicketResult =
   | { ok: true; electionId: string }
-  | { ok: false; reason: "invalid" | "already_voted" | "election_closed" };
+  | { ok: false; reason: "invalid" | "already_voted" | "election_closed" | "no_candidates" };
 
 export async function consumeVotingTicket(ticket: string): Promise<ConsumeTicketResult> {
   const raw = await redis.get<string>(votingTicketKey(ticket));
   const payload = parseTicketPayload(raw);
   if (!payload) return { ok: false, reason: "invalid" };
 
-  const election = await getElectionMeta(payload.electionId);
+  const election = await getElectionDetails(payload.electionId);
   if (!election || election.status !== "OPEN") return { ok: false, reason: "election_closed" };
+
+  if (getActiveCandidates(election.candidates).length === 0) {
+    return { ok: false, reason: "no_candidates" };
+  }
 
   if (await redis.get(electionCpfUsedKey(payload.electionId, payload.cpfHash))) {
     return { ok: false, reason: "already_voted" };
@@ -414,7 +462,7 @@ export async function submitVote(input: {
   if (input.decisions.length === 0) throw new Error("Nenhum voto foi informado.");
 
   const activeCandidates = new Map(
-    election.candidates.filter((candidate) => candidate.active).map((candidate) => [candidate.id, candidate])
+    getActiveCandidates(election.candidates).map((candidate) => [candidate.id, candidate])
   );
   for (const decision of input.decisions) {
     if (!activeCandidates.has(decision.candidateId)) {

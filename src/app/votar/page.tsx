@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createCsrfToken } from "@/lib/csrf";
 import { getBallotSession } from "@/lib/ballot";
-import { getElectionDetails } from "@/lib/election-store";
+import { getActiveCandidates, getElectionDetails } from "@/lib/election-store";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function VotingPage() {
   }
 
   const election = await getElectionDetails(ballot.electionId);
-  const activeCandidates = election?.candidates.filter((candidate) => candidate.active) ?? [];
+  const activeCandidates = election ? getActiveCandidates(election.candidates) : [];
   if (!election || election.status !== "OPEN" || activeCandidates.length === 0) {
     return (
       <main className="flex min-h-screen items-center justify-center px-4 py-10">

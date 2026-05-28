@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { BALLOT_COOKIE, createBallotToken } from "@/lib/ballot";
 import { env } from "@/lib/env";
-import { consumeVotingTicket, getElectionDetails } from "@/lib/election-store";
+import { consumeVotingTicket } from "@/lib/election-store";
 
 export const dynamic = "force-dynamic";
 
@@ -21,16 +21,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ tick
     if (consumed.reason === "election_closed") {
       return NextResponse.redirect(new URL("/?erro=votacao-fechada", request.url));
     }
+    if (consumed.reason === "no_candidates") {
+      return NextResponse.redirect(new URL("/?erro=sem-candidatos", request.url));
+    }
     return NextResponse.redirect(new URL("/?erro=link-expirado", request.url));
-  }
-
-  const election = await getElectionDetails(consumed.electionId);
-  if (!election || election.status !== "OPEN") {
-    return NextResponse.redirect(new URL("/?erro=votacao-fechada", request.url));
-  }
-
-  if (election.candidates.filter((candidate) => candidate.active).length === 0) {
-    return NextResponse.redirect(new URL("/?erro=sem-candidatos", request.url));
   }
 
   const { token } = await createBallotToken(consumed.electionId);

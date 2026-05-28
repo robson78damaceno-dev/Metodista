@@ -68,6 +68,13 @@ export async function requestVotingLinkAction(
       if (issued.reason === "already_voted") {
         return { ok: false, message: ALREADY_VOTED_MESSAGE, data: { alreadyVoted: true } };
       }
+      if (issued.reason === "no_candidates") {
+        return {
+          ok: false,
+          message:
+            "A votação ainda não possui candidatos cadastrados. O administrador deve adicionar candidatos no painel antes de enviar links."
+        };
+      }
       return { ok: true, message: GENERIC_LINK_MESSAGE };
     }
 
