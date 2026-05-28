@@ -9,20 +9,19 @@ type Entry =
   | { kind: "hash"; value: Map<string, number>; expiresAt?: number }
   | { kind: "list"; value: unknown[]; expiresAt?: number };
 
-function isPlaceholderUpstash(url: string, token: string) {
-  return url.includes("your-instance.upstash.io") || token === "your-upstash-token";
+function isLocalAppUrl(url: string) {
+  const normalized = url.toLowerCase();
+  return normalized.includes("localhost") || normalized.includes("127.0.0.1");
 }
 
 export function shouldUseMemoryRedis() {
-  const url = process.env.UPSTASH_REDIS_REST_URL ?? "";
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
-  // Nunca permitir store em memória na Vercel.
-  // Isso evita perda de dados em produção/preview por configuração acidental.
-  if (process.env.VERCEL) return false;
-  // Nunca permitir store em memória fora de desenvolvimento local.
-  if (process.env.NODE_ENV !== "development") return false;
-  if (process.env.USE_DEV_MEMORY_STORE === "true") return true;
-  return isPlaceholderUpstash(url, token);
+  const useMemory = process.env.USE_DEV_MEMORY_STORE === "true";
+  if (!useMemory) return false;
+
+  // Segurança extra: só permite memória quando o app roda localmente.
+  // Em Vercel/URLs públicas, memória causa "criou e sumiu".
+  const appUrl = process.env.APP_URL ?? "";
+  return isLocalAppUrl(appUrl);
 }
 
 class MemoryRedis {
