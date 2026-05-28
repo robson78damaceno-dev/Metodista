@@ -4,9 +4,16 @@ import {
   getElectionResult,
   listElections
 } from "@/lib/election-store";
+import { debugLog, logStorageContext } from "@/lib/debug-log";
 
 export async function getAdminDashboardData() {
+  logStorageContext("getAdminDashboardData");
   const elections = await listElections();
+  debugLog("getAdminDashboardData", {
+    electionCount: elections.length,
+    electionIds: elections.map((e) => e.id),
+    titles: elections.map((e) => e.title)
+  });
   const blockingElection = await getElectionBlockingNewCreation();
   const results = await Promise.all(elections.map((election) => getElectionResult(election.id)));
   const feedbackCounts = await Promise.all(elections.map((election) => getElectionFeedbacks(election.id)));

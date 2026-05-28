@@ -15,6 +15,8 @@ function isLocalAppUrl(url: string) {
 }
 
 export function shouldUseMemoryRedis() {
+  if (process.env.VERCEL) return false;
+
   const useMemory = process.env.USE_DEV_MEMORY_STORE === "true";
   if (!useMemory) return false;
 

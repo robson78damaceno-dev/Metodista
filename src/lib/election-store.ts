@@ -1,4 +1,5 @@
 import { secureToken } from "@/lib/crypto";
+import { debugError, debugLog, logStorageContext } from "@/lib/debug-log";
 import { env } from "@/lib/env";
 import { redis } from "@/lib/redis";
 
@@ -92,10 +93,18 @@ function votingTicketKey(ticket: string) {
 }
 
 function decodeJson<T>(value: unknown): T | null {
-  if (!value || typeof value !== "string") return null;
+  if (value == null) return null;
+  if (typeof value === "object") return value as T;
+  if (typeof value !== "string") {
+    debugLog("decodeJson: tipo inesperado", { valueType: typeof value });
+    return null;
+  }
   try {
     return JSON.parse(value) as T;
-  } catch {
+  } catch (error) {
+    debugError("decodeJson: falha ao parsear string", error, {
+      preview: value.slice(0, 120)
+    });
     return null;
   }
 }
@@ -112,6 +121,11 @@ export async function getElectionBlockingNewCreation() {
 
 export async function assertCanCreateElection() {
   const blocking = await getElectionBlockingNewCreation();
+  debugLog("assertCanCreateElection", {
+    blocked: Boolean(blocking),
+    blockingId: blocking?.id ?? null,
+    blockingTitle: blocking?.title ?? null
+  });
   if (blocking) {
     throw new Error(`Encerre a eleição "${blocking.title}" antes de criar uma nova.`);
   }
@@ -123,6 +137,13 @@ export async function createElection(input: {
   recipientEmail1: string;
   recipientEmail2: string;
 }) {
+  logStorageContext("createElection:start");
+  debugLog("createElection: input", {
+    title: input.title,
+    recipientEmail1: input.recipientEmail1,
+    recipientEmail2: input.recipientEmail2
+  });
+
   await assertCanCreateElection();
 
   const now = new Date().toISOString();
@@ -138,11 +159,41 @@ export async function createElection(input: {
     closesAt: null
   };
 
-  await redis.set(electionMetaKey(meta.id), JSON.stringify(meta), { ex: DEFAULT_TTL_SECONDS });
-  await redis.sadd(electionIndexKey(), meta.id);
-  await redis.expire(electionIndexKey(), DEFAULT_TTL_SECONDS);
+  const metaKey = electionMetaKey(meta.id);
+  const indexKey = electionIndexKey();
 
-  return meta;
+  try {
+    const setResult = await redis.set(metaKey, JSON.stringify(meta), { ex: DEFAULT_TTL_SECONDS });
+    const saddResult = await redis.sadd(indexKey, meta.id);
+    const expireResult = await redis.expire(indexKey, DEFAULT_TTL_SECONDS);
+
+    const indexIds = await redis.smembers(indexKey);
+    const savedMeta = await getElectionMeta(meta.id);
+
+    debugLog("createElection: gravado no Redis", {
+      electionId: meta.id,
+      metaKey,
+      indexKey,
+      setResult,
+      saddResult,
+      expireResult,
+      indexCount: indexIds.length,
+      indexIds,
+      metaFound: Boolean(savedMeta),
+      metaTitle: savedMeta?.title ?? null
+    });
+
+    if (!savedMeta) {
+      throw new Error(
+        "Eleição foi salva, mas não foi encontrada ao reler do Redis. Verifique UPSTASH_REDIS_REST_URL e TOKEN na Vercel."
+      );
+    }
+
+    return meta;
+  } catch (error) {
+    debugError("createElection: falha ao gravar", error, { electionId: meta.id, metaKey, indexKey });
+    throw error;
+  }
 }
 
 export async function getElectionMeta(electionId: string) {
@@ -160,11 +211,20 @@ export async function getElectionDetails(electionId: string): Promise<ElectionDe
 }
 
 export async function listElections() {
-  const ids = await redis.smembers(electionIndexKey());
+  const indexKey = electionIndexKey();
+  const ids = await redis.smembers(indexKey);
   const details = await Promise.all(ids.map((id) => getElectionDetails(id)));
-  return details
-    .filter((value): value is ElectionDetails => Boolean(value))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const resolved = details.filter((value): value is ElectionDetails => Boolean(value));
+
+  debugLog("listElections", {
+    indexKey,
+    rawIdCount: ids.length,
+    rawIds: ids,
+    resolvedCount: resolved.length,
+    missingIds: ids.filter((id, index) => !details[index])
+  });
+
+  return resolved.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getOpenElection() {

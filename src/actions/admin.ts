@@ -12,11 +12,16 @@ import {
   updateElection
 } from "@/lib/election-store";
 import { requireAdminSession } from "@/lib/auth";
+import { debugError, debugLog, logStorageContext } from "@/lib/debug-log";
 import { sanitizeText } from "@/lib/sanitize";
 import type { ActionState } from "@/types/actions";
 import { candidateSchema, changeElectionStatusSchema, electionSchema } from "@/validations/admin";
 
 export async function saveElectionAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  const isCreate = !formData.get("id");
+  debugLog("saveElectionAction: início", { isCreate });
+  logStorageContext("saveElectionAction");
+
   try {
     const admin = await requireAdminSession();
     const parsed = electionSchema.parse(Object.fromEntries(formData));
@@ -30,22 +35,27 @@ export async function saveElectionAction(_: ActionState, formData: FormData): Pr
     };
 
     if (parsed.id) {
+      debugLog("saveElectionAction: atualizar", { electionId: parsed.id });
       const updated = await updateElection(parsed.id, data);
       if (!updated) {
+        debugLog("saveElectionAction: eleição não encontrada", { electionId: parsed.id });
         return { ok: false, message: "Eleição não encontrada." };
       }
       await audit(admin.sub, "election.update", { electionId: parsed.id });
     } else {
       const election = await createElection(data);
+      debugLog("saveElectionAction: criada", { electionId: election.id, title: election.title });
       await audit(admin.sub, "election.create", { electionId: election.id });
     }
 
     revalidatePath("/admin");
+    debugLog("saveElectionAction: sucesso", { isCreate, electionId: parsed.id ?? "novo" });
     return {
       ok: true,
       message: parsed.id ? "Eleição salva com sucesso." : "Eleição criada com sucesso."
     };
   } catch (error) {
+    debugError("saveElectionAction: erro", error, { isCreate });
     return { ok: false, message: getErrorMessage(error, "Não foi possível salvar a eleição.") };
   }
 }

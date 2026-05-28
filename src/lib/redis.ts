@@ -1,4 +1,5 @@
 import { Redis } from "@upstash/redis";
+import { debugError, debugLog } from "@/lib/debug-log";
 import { memoryRedis, shouldUseMemoryRedis } from "@/lib/memory-redis";
 import { cleanEnvValue } from "@/lib/runtime-secrets";
 
@@ -57,27 +58,72 @@ function createUpstashRedis(config: { url: string; token: string }): AppRedis {
   return globalForRedis.redis;
 }
 
+let loggedClientMode = false;
+
 function getRedisClient(): AppRedis {
   if (shouldUseMemoryRedis()) {
+    if (!loggedClientMode) {
+      loggedClientMode = true;
+      debugLog("redis: cliente em memória (dev)");
+    }
     return memoryRedis;
   }
 
   const config = getUpstashConfig();
   if (!config) {
+    debugError("redis: Upstash não configurado", new Error(UPSTASH_NOT_CONFIGURED_MESSAGE));
     throw new Error(UPSTASH_NOT_CONFIGURED_MESSAGE);
+  }
+
+  if (!loggedClientMode) {
+    loggedClientMode = true;
+    try {
+      debugLog("redis: cliente Upstash", { host: new URL(config.url).hostname });
+    } catch {
+      debugLog("redis: cliente Upstash", { urlInvalid: true });
+    }
   }
 
   return createUpstashRedis(config);
 }
 
+const LOGGED_REDIS_OPS = new Set(["set", "get", "sadd", "smembers", "expire"]);
+
 export const redis: AppRedis = new Proxy({} as AppRedis, {
   get(_target, prop) {
     const client = getRedisClient();
     const value = client[prop as keyof AppRedis];
-    if (typeof value === "function") {
-      return (value as (...args: unknown[]) => unknown).bind(client);
+    if (typeof value !== "function") return value;
+
+    const methodName = String(prop);
+    const original = (value as (...args: unknown[]) => unknown).bind(client);
+
+    if (!LOGGED_REDIS_OPS.has(methodName)) {
+      return original;
     }
-    return value;
+
+    return async (...args: unknown[]) => {
+      const key = typeof args[0] === "string" ? args[0] : String(args[0]);
+      try {
+        const result = await original(...args);
+        debugLog(`redis.${methodName}`, {
+          key,
+          ok: true,
+          resultPreview:
+            result == null
+              ? null
+              : Array.isArray(result)
+                ? { type: "array", length: result.length }
+                : typeof result === "object"
+                  ? { type: "object" }
+                  : result
+        });
+        return result;
+      } catch (error) {
+        debugError(`redis.${methodName}: falha`, error, { key });
+        throw error;
+      }
+    };
   }
 });
 
