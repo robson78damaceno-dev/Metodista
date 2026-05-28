@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import type { InputHTMLAttributes } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { ChevronDown, Download, KeyRound, LogOut, Mail, Plus, Save, Shield, Vote } from "lucide-react";
 import { changeElectionStatusAction, saveCandidateAction, saveElectionAction } from "@/actions/admin";
@@ -154,6 +155,7 @@ function MetricPill({ icon: Icon, label, value }: { icon: LucideIcon; label: str
 
 function AdminAccountCard({ csrfToken, email }: { csrfToken: string; email: string }) {
   const [state, action] = useActionState(changeAdminAccountAction, initialActionState);
+  useRefreshOnActionSuccess(state);
 
   return (
     <details className="group rounded-2xl border bg-card/60">
@@ -196,6 +198,15 @@ function AdminAccountCard({ csrfToken, email }: { csrfToken: string; email: stri
   );
 }
 
+function useRefreshOnActionSuccess(state: { ok: boolean; message: string }) {
+  const router = useRouter();
+  useEffect(() => {
+    if (state.ok) {
+      router.refresh();
+    }
+  }, [state.ok, state.message, router]);
+}
+
 function CreateElectionDialog({
   csrfToken,
   canCreate,
@@ -207,6 +218,7 @@ function CreateElectionDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState(saveElectionAction, initialActionState);
+  useRefreshOnActionSuccess(state);
 
   useEffect(() => {
     if (state.ok) setOpen(false);
@@ -399,6 +411,7 @@ function CandidateRow({
 
 function EditElectionForm({ election, csrfToken }: { election: Election; csrfToken: string }) {
   const [state, action] = useActionState(saveElectionAction, initialActionState);
+  useRefreshOnActionSuccess(state);
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="csrfToken" value={csrfToken} />
@@ -427,6 +440,7 @@ function CandidateForm({
   compact?: boolean;
 }) {
   const [state, action] = useActionState(saveCandidateAction, initialActionState);
+  useRefreshOnActionSuccess(state);
   return (
     <form action={action} className={cn("rounded-xl border bg-muted/30 p-3", compact && "border-0 bg-transparent p-0")}>
       <input type="hidden" name="csrfToken" value={csrfToken} />
@@ -472,14 +486,16 @@ function StatusButton({
   variant?: "default" | "secondary" | "outline";
 }) {
   const [state, action] = useActionState(changeElectionStatusAction, initialActionState);
+  useRefreshOnActionSuccess(state);
   return (
-    <form action={action}>
+    <form action={action} className="space-y-1">
       <input type="hidden" name="csrfToken" value={csrfToken} />
       <input type="hidden" name="electionId" value={electionId} />
       <input type="hidden" name="status" value={status} />
-      <Button type="submit" variant={variant} size="sm" title={state.message || undefined}>
+      <Button type="submit" variant={variant} size="sm">
         {children}
       </Button>
+      {state.message ? <ActionMessage state={state} /> : null}
     </form>
   );
 }

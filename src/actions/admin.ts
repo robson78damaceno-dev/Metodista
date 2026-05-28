@@ -138,5 +138,9 @@ async function audit(actorId: string, action: string, metadata?: Record<string, 
 }
 
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
+  const raw = error instanceof Error ? error.message : fallback;
+  if (raw.toLowerCase().includes("fetch failed") || raw.includes("Upstash")) {
+    return "Erro ao conectar no Redis (Upstash). Verifique UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN na Vercel.";
+  }
+  return raw;
 }
