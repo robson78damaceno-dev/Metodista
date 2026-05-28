@@ -55,6 +55,19 @@ Significa: a Vercel **não recebeu** esses valores. Não é falta de `.env` no G
 
 O deploy pode **compilar** mesmo assim, mas o site **não funciona** até você cadastrar todas as variáveis e fazer **Redeploy**.
 
+## Erro de build: `npm run build exited with 1`
+
+Causas comuns depois de cadastrar variáveis:
+
+| Valor errado na Vercel | Correto |
+|------------------------|---------|
+| `SUBSTITUIR_NO_UPSTASH` | URL real do Upstash (`https://....upstash.io`) |
+| `COPIAR_LINHA_8_DO_ENV` | Cole o valor real do `.env` (começa com `re_`) |
+| `metodista.vercel.app` | `https://metodista.vercel.app` |
+| Aspas no valor (`"admin@@"`) | Sem aspas: `admin@@` |
+
+Abra o log do deploy na Vercel e procure a linha com `Variáveis de ambiente inválidas` — ela mostra qual campo falhou.
+
 ## Por que NÃO commitar o .env no GitHub?
 
 - Qualquer pessoa pode ver suas chaves do Redis, Resend e segredos.
