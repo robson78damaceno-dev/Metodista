@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
 import { jwtVerify, SignJWT } from "jose";
-import { env } from "@/lib/env";
+import { ADMIN_COOKIE } from "@/lib/auth-constants";
+import { getAuthSecret } from "@/lib/runtime-secrets";
 
-export const ADMIN_COOKIE = "concilio_admin";
+export { ADMIN_COOKIE } from "@/lib/auth-constants";
+
 const encoder = new TextEncoder();
 
 export type AdminSession = {
@@ -12,6 +14,11 @@ export type AdminSession = {
 };
 
 export async function createAdminToken(session: AdminSession) {
+  const secret = getAuthSecret();
+  if (!secret) {
+    throw new Error("AUTH_SECRET não configurado no servidor.");
+  }
+
   return new SignJWT({
     email: session.email,
     name: session.name
@@ -20,14 +27,17 @@ export async function createAdminToken(session: AdminSession) {
     .setSubject(session.sub)
     .setIssuedAt()
     .setExpirationTime("8h")
-    .sign(encoder.encode(env.AUTH_SECRET));
+    .sign(encoder.encode(secret));
 }
 
 export async function verifyAdminToken(token?: string): Promise<AdminSession | null> {
   if (!token) return null;
 
+  const secret = getAuthSecret();
+  if (!secret) return null;
+
   try {
-    const { payload } = await jwtVerify(token, encoder.encode(env.AUTH_SECRET));
+    const { payload } = await jwtVerify(token, encoder.encode(secret));
     if (!payload.sub || typeof payload.email !== "string" || typeof payload.name !== "string") {
       return null;
     }
@@ -48,10 +58,11 @@ export async function getAdminSession() {
 
 export async function setAdminSessionCookie(token: string) {
   const cookieStore = await cookies();
+  const secure = process.env.NODE_ENV === "production";
   cookieStore.set(ADMIN_COOKIE, token, {
     httpOnly: true,
-    sameSite: "strict",
-    secure: env.NODE_ENV === "production",
+    sameSite: "lax",
+    secure,
     path: "/"
   });
 }

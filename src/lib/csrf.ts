@@ -1,18 +1,25 @@
 import { cookies, headers } from "next/headers";
 import { hmacSha256, secureToken, timingSafeEqual } from "@/lib/crypto";
 import { CSRF_COOKIE, CSRF_HEADER } from "@/lib/csrf-constants";
-import { env } from "@/lib/env";
+import { getCsrfSecret } from "@/lib/runtime-secrets";
 
 export { CSRF_COOKIE } from "@/lib/csrf-constants";
 
 function signCsrfToken(token: string) {
-  return `${token}.${hmacSha256(`csrf:${token}`, env.CSRF_SECRET)}`;
+  const secret = getCsrfSecret();
+  if (!secret) {
+    throw new Error("CSRF_SECRET não configurado no servidor.");
+  }
+  return `${token}.${hmacSha256(`csrf:${token}`, secret)}`;
 }
 
 function verifySignedCsrfToken(signed: string) {
+  const secret = getCsrfSecret();
+  if (!secret) return false;
+
   const [token, signature] = signed.split(".");
   if (!token || !signature) return false;
-  const expected = hmacSha256(`csrf:${token}`, env.CSRF_SECRET);
+  const expected = hmacSha256(`csrf:${token}`, secret);
   return timingSafeEqual(signature, expected);
 }
 

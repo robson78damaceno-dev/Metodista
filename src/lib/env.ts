@@ -128,10 +128,11 @@ function resolveEnvInput() {
   }
 
   if (process.env.VERCEL) {
-    throw new Error(
-      "Variáveis de ambiente inválidas na Vercel. Não use textos como SUBSTITUIR_NO_UPSTASH ou COPIAR_LINHA_8_DO_ENV. " +
-        "Use valores reais do Upstash, Resend e do seu .env. Veja docs/VERCEL_VARIAVEIS.md"
+    console.error(
+      "[env] Upstash ausente ou inválido na Vercel. Login admin pode abrir, mas voto/redis exigem Upstash real. " +
+        "Veja docs/VERCEL_VARIAVEIS.md"
     );
+    return mergeDefined(BUILD_STUBS, fromProcess);
   }
 
   return fromProcess;

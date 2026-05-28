@@ -26,7 +26,7 @@ export default async function HomePage({
     <main className="min-h-screen px-4 py-8 sm:py-12">
       <div className="fixed right-4 top-4 z-10 flex items-center gap-2">
         <Button asChild variant="outline" size="sm">
-          <Link href="/admin/sair">Admin</Link>
+          <Link href="/admin/login">Admin</Link>
         </Button>
         <ThemeToggle />
       </div>

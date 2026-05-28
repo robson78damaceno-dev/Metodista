@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { ADMIN_COOKIE } from "@/lib/auth-constants";
 import { CSRF_COOKIE, CSRF_HEADER } from "@/lib/csrf-constants";
-
-const ADMIN_COOKIE = "concilio_admin";
 
 function cleanEnv(value: string | undefined) {
   if (!value) return undefined;

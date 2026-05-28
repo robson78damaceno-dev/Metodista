@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { env } from "@/lib/env";
+import { getAuthSecret, getCodeHashSecret } from "@/lib/runtime-secrets";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 9;
@@ -25,11 +25,19 @@ export function generateVotingCode() {
 }
 
 export function hashVotingCode(code: string) {
-  return hmacSha256(normalizeVotingCode(code), env.CODE_HASH_SECRET);
+  const secret = getCodeHashSecret();
+  if (!secret) {
+    throw new Error("CODE_HASH_SECRET não configurado no servidor.");
+  }
+  return hmacSha256(normalizeVotingCode(code), secret);
 }
 
-export function hmacSha256(value: string, secret = env.AUTH_SECRET) {
-  return crypto.createHmac("sha256", secret).update(value).digest("hex");
+export function hmacSha256(value: string, secret?: string) {
+  const resolved = secret ?? getAuthSecret();
+  if (!resolved) {
+    throw new Error("AUTH_SECRET não configurado no servidor.");
+  }
+  return crypto.createHmac("sha256", resolved).update(value).digest("hex");
 }
 
 export function secureToken(bytes = 32) {
