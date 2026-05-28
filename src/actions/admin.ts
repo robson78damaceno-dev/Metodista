@@ -95,6 +95,11 @@ export async function changeElectionStatusAction(_: ActionState, formData: FormD
     const admin = await requireAdminSession();
     const parsed = changeElectionStatusSchema.parse(Object.fromEntries(formData));
     await assertCsrfToken(parsed.csrfToken);
+    debugLog("changeElectionStatusAction", {
+      electionId: parsed.electionId,
+      status: parsed.status
+    });
+    logStorageContext("changeElectionStatusAction");
 
     if (parsed.status === "OPEN") {
       await closeOtherOpenElections(parsed.electionId);
@@ -111,18 +116,24 @@ export async function changeElectionStatusAction(_: ActionState, formData: FormD
         return { ok: false, message: "Não foi possível gerar resultado final." };
       }
 
-      await sendElectionResultsEmail({
-        electionTitle: result.election.title,
-        recipients: [result.election.recipientEmail1, result.election.recipientEmail2],
-        closedAt: result.election.closesAt,
-        rows: result.candidates.map((candidate) => ({
-          candidate: candidate.name,
-          yes: candidate.yesCount,
-          no: candidate.noCount,
-          abstain: candidate.abstainCount
-        })),
-        totalBallots: result.stats.spentBallots
-      });
+      try {
+        await sendElectionResultsEmail({
+          electionTitle: result.election.title,
+          recipients: [result.election.recipientEmail1, result.election.recipientEmail2],
+          closedAt: result.election.closesAt,
+          rows: result.candidates.map((candidate) => ({
+            candidate: candidate.name,
+            yes: candidate.yesCount,
+            no: candidate.noCount,
+            abstain: candidate.abstainCount
+          })),
+          totalBallots: result.stats.spentBallots
+        });
+      } catch (emailError) {
+        debugError("changeElectionStatusAction: e-mail de resultado falhou", emailError, {
+          electionId: parsed.electionId
+        });
+      }
     }
 
     await audit(admin.sub, "election.status", { electionId: parsed.electionId, status: parsed.status });
@@ -132,9 +143,12 @@ export async function changeElectionStatusAction(_: ActionState, formData: FormD
       message:
         parsed.status === "OPEN"
           ? "Votação aberta. Os eleitores solicitam o link na página principal com CPF e e-mail."
-          : "Status da eleição atualizado."
+          : parsed.status === "CLOSED"
+            ? "Eleição encerrada. Você já pode criar uma nova."
+            : "Status da eleição atualizado."
     };
   } catch (error) {
+    debugError("changeElectionStatusAction: erro", error);
     return { ok: false, message: getErrorMessage(error, "Não foi possível alterar o status.") };
   }
 }

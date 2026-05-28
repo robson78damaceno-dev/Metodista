@@ -110,8 +110,35 @@ function decodeJson<T>(value: unknown): T | null {
 }
 
 function parseTicketPayload(raw: unknown): TicketPayload | null {
-  if (!raw || typeof raw !== "string") return null;
   return decodeJson<TicketPayload>(raw);
+}
+
+async function writeElectionMeta(electionId: string, meta: ElectionMeta) {
+  await redis.set(electionMetaKey(electionId), meta, { ex: DEFAULT_TTL_SECONDS });
+}
+
+async function getElectionCandidates(electionId: string): Promise<ElectionCandidate[]> {
+  const raw = await redis.get<unknown>(electionCandidatesKey(electionId));
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as ElectionCandidate[];
+  return decodeJson<ElectionCandidate[]>(raw) ?? [];
+}
+
+/** Mantém só a eleição ativa mais recente; encerra duplicatas de testes/deploy. */
+export async function normalizeActiveElections() {
+  const elections = await listElections();
+  const active = elections.filter((election) => election.status !== "CLOSED");
+  if (active.length <= 1) return;
+
+  const [, ...stale] = active;
+  for (const election of stale) {
+    debugLog("normalizeActiveElections: encerrando eleição antiga", {
+      id: election.id,
+      title: election.title,
+      status: election.status
+    });
+    await setElectionStatus(election.id, "CLOSED");
+  }
 }
 
 export async function getElectionBlockingNewCreation() {
@@ -163,7 +190,7 @@ export async function createElection(input: {
   const indexKey = electionIndexKey();
 
   try {
-    const setResult = await redis.set(metaKey, JSON.stringify(meta), { ex: DEFAULT_TTL_SECONDS });
+    const setResult = await redis.set(metaKey, meta, { ex: DEFAULT_TTL_SECONDS });
     const saddResult = await redis.sadd(indexKey, meta.id);
     const expireResult = await redis.expire(indexKey, DEFAULT_TTL_SECONDS);
 
@@ -203,7 +230,7 @@ export async function getElectionMeta(electionId: string) {
 export async function getElectionDetails(electionId: string): Promise<ElectionDetails | null> {
   const meta = await getElectionMeta(electionId);
   if (!meta) return null;
-  const candidates = (await redis.get<ElectionCandidate[]>(electionCandidatesKey(electionId))) ?? [];
+  const candidates = await getElectionCandidates(electionId);
   return {
     ...meta,
     candidates: candidates.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
@@ -255,7 +282,7 @@ export async function updateElection(
     recipientEmail1: input.recipientEmail1,
     recipientEmail2: input.recipientEmail2
   };
-  await redis.set(electionMetaKey(electionId), JSON.stringify(updated), { ex: DEFAULT_TTL_SECONDS });
+  await writeElectionMeta(electionId, updated);
   return updated;
 }
 
@@ -269,8 +296,17 @@ export async function setElectionStatus(electionId: string, status: ElectionStat
     opensAt: status === "OPEN" ? now : current.opensAt,
     closesAt: status === "CLOSED" ? now : current.closesAt
   };
-  await redis.set(electionMetaKey(electionId), JSON.stringify(updated), { ex: DEFAULT_TTL_SECONDS });
-  return updated;
+
+  await writeElectionMeta(electionId, updated);
+  const verified = await getElectionMeta(electionId);
+  if (!verified || verified.status !== status) {
+    throw new Error(
+      `Não foi possível confirmar o status "${status}" no Redis. Tente novamente ou verifique o Upstash na Vercel.`
+    );
+  }
+
+  debugLog("setElectionStatus: ok", { electionId, status, title: verified.title });
+  return verified;
 }
 
 export async function saveCandidate(
@@ -280,7 +316,7 @@ export async function saveCandidate(
   const election = await getElectionMeta(electionId);
   if (!election) return null;
 
-  const candidates = (await redis.get<ElectionCandidate[]>(electionCandidatesKey(electionId))) ?? [];
+  const candidates = await getElectionCandidates(electionId);
   const id = input.id ?? crypto.randomUUID();
   const nextCandidate: ElectionCandidate = {
     id,
@@ -321,7 +357,7 @@ export async function issueVotingLinkForCpf(electionId: string, cpfHash: string)
 
   const ticket = secureToken(24);
   const payload: TicketPayload = { electionId, cpfHash };
-  await redis.set(votingTicketKey(ticket), JSON.stringify(payload), { ex: DEFAULT_TTL_SECONDS });
+  await redis.set(votingTicketKey(ticket), payload, { ex: DEFAULT_TTL_SECONDS });
   await redis.set(electionCpfTicketKey(electionId, cpfHash), ticket, { ex: DEFAULT_TTL_SECONDS });
   await redis.incr(electionLinksIssuedKey(electionId));
   await redis.expire(electionLinksIssuedKey(electionId), DEFAULT_TTL_SECONDS);

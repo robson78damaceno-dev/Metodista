@@ -283,17 +283,7 @@ function ActiveElectionPanel({ election, csrfToken }: { election: Election; csrf
             <CardTitle className="text-xl">{election.title}</CardTitle>
             {election.description ? <CardDescription>{election.description}</CardDescription> : null}
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            <StatusButton csrfToken={csrfToken} electionId={election.id} status="OPEN">
-              Abrir
-            </StatusButton>
-            <StatusButton csrfToken={csrfToken} electionId={election.id} status="CLOSED" variant="secondary">
-              Encerrar
-            </StatusButton>
-            <StatusButton csrfToken={csrfToken} electionId={election.id} status="DRAFT" variant="outline">
-              Rascunho
-            </StatusButton>
-          </div>
+          <ElectionStatusControls election={election} csrfToken={csrfToken} />
         </div>
 
         <div className="flex gap-1 rounded-xl bg-muted/60 p-1">
@@ -472,31 +462,33 @@ function CandidateForm({
   );
 }
 
-function StatusButton({
-  csrfToken,
-  electionId,
-  status,
-  children,
-  variant = "default"
-}: {
-  csrfToken: string;
-  electionId: string;
-  status: "DRAFT" | "OPEN" | "CLOSED";
-  children: string;
-  variant?: "default" | "secondary" | "outline";
-}) {
+function ElectionStatusControls({ election, csrfToken }: { election: Election; csrfToken: string }) {
   const [state, action] = useActionState(changeElectionStatusAction, initialActionState);
   useRefreshOnActionSuccess(state);
+
   return (
-    <form action={action} className="space-y-1">
-      <input type="hidden" name="csrfToken" value={csrfToken} />
-      <input type="hidden" name="electionId" value={electionId} />
-      <input type="hidden" name="status" value={status} />
-      <Button type="submit" variant={variant} size="sm">
-        {children}
-      </Button>
+    <div className="space-y-2">
+      <form action={action} className="flex flex-wrap gap-1.5">
+        <input type="hidden" name="csrfToken" value={csrfToken} />
+        <input type="hidden" name="electionId" value={election.id} />
+        {election.status !== "OPEN" ? (
+          <Button type="submit" name="status" value="OPEN" size="sm">
+            Abrir
+          </Button>
+        ) : null}
+        {election.status !== "CLOSED" ? (
+          <Button type="submit" name="status" value="CLOSED" size="sm" variant="secondary">
+            Encerrar
+          </Button>
+        ) : null}
+        {election.status !== "DRAFT" ? (
+          <Button type="submit" name="status" value="DRAFT" size="sm" variant="outline">
+            Rascunho
+          </Button>
+        ) : null}
+      </form>
       {state.message ? <ActionMessage state={state} /> : null}
-    </form>
+    </div>
   );
 }
 

@@ -2,12 +2,14 @@ import {
   getElectionBlockingNewCreation,
   getElectionFeedbacks,
   getElectionResult,
-  listElections
+  listElections,
+  normalizeActiveElections
 } from "@/lib/election-store";
 import { debugLog, logStorageContext } from "@/lib/debug-log";
 
 export async function getAdminDashboardData() {
   logStorageContext("getAdminDashboardData");
+  await normalizeActiveElections();
   const elections = await listElections();
   debugLog("getAdminDashboardData", {
     electionCount: elections.length,
