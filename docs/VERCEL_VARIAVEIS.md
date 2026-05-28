@@ -28,8 +28,9 @@ SEED_ADMIN_LOGIN
 SEED_ADMIN_PASSWORD
 ```
 
-6. **Importante:** em cada variável, marque a caixa **Production**.  
-   Se marcar só "Development", o **build de produção falha** com "variáveis ausentes".
+6. **Importante:** em cada variável, marque **Production** e **Preview**.  
+   - Só Production → links `*-git-main-*.vercel.app` dão erro **500**.  
+   - Só Development → o build de produção falha com "variáveis ausentes".
 
 7. Depois de salvar todas: **Deployments** → último deploy → **⋮** → **Redeploy**.
 

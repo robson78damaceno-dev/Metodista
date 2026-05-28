@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { Redis } from "@upstash/redis";
 import { CSRF_COOKIE, CSRF_HEADER } from "@/lib/csrf-constants";
 import { hmacSha256Edge, secureTokenEdge } from "@/lib/csrf-edge";
-import { shouldUseMemoryRedis } from "@/lib/memory-redis";
 
 const ADMIN_COOKIE = "concilio_admin";
 
@@ -36,6 +34,11 @@ export async function middleware(request: NextRequest) {
   return response;
 }
 
+async function signCsrfEdge(token: string, secret: string) {
+  const signature = await hmacSha256Edge(`csrf:${token}`, secret);
+  return `${token}.${signature}`;
+}
+
 async function ensureCsrfCookie(request: NextRequest, response: NextResponse, requestHeaders: Headers) {
   const existing = request.cookies.get(CSRF_COOKIE)?.value;
   if (existing) {
@@ -43,22 +46,13 @@ async function ensureCsrfCookie(request: NextRequest, response: NextResponse, re
     return;
   }
 
-  const token = secureTokenEdge(32);
-  requestHeaders.set(CSRF_HEADER, token);
   const csrfSecret = process.env.CSRF_SECRET;
   if (!csrfSecret) return;
 
-  if (!shouldUseMemoryRedis()) {
-    const url = process.env.UPSTASH_REDIS_REST_URL;
-    const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (url && redisToken) {
-      const tokenHash = await hmacSha256Edge(token, csrfSecret);
-      const redis = new Redis({ url, token: redisToken });
-      await redis.set(`csrf:${tokenHash}`, "1", { ex: 45 * 60 });
-    }
-  }
-
-  response.cookies.set(CSRF_COOKIE, token, {
+  const token = secureTokenEdge(32);
+  const signed = await signCsrfEdge(token, csrfSecret);
+  requestHeaders.set(CSRF_HEADER, signed);
+  response.cookies.set(CSRF_COOKIE, signed, {
     httpOnly: true,
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
@@ -87,5 +81,5 @@ function setSecurityHeaders(response: NextResponse) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|logo-metodista.png).*)"]
 };
