@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
-import { env } from "@/lib/env";
 import { memoryRedis, shouldUseMemoryRedis } from "@/lib/memory-redis";
+import { cleanEnvValue } from "@/lib/runtime-secrets";
 
 type SetOptions = {
   ex?: number;
@@ -23,22 +23,64 @@ export type AppRedis = {
   del(key: string): Promise<number>;
 };
 
-const globalForRedis = globalThis as unknown as {
-  redis?: Redis;
-};
+const UPSTASH_NOT_CONFIGURED_MESSAGE =
+  "Upstash Redis não está configurado. Na Vercel, cadastre UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN com valores reais em console.upstash.com.";
 
-function createUpstashRedis(): AppRedis {
-  if (!globalForRedis.redis) {
-    globalForRedis.redis = new Redis({
-      url: env.UPSTASH_REDIS_REST_URL,
-      token: env.UPSTASH_REDIS_REST_TOKEN
-    });
-  }
-  return globalForRedis.redis as unknown as AppRedis;
+function isPlaceholderUpstashUrl(url: string) {
+  const lower = url.toLowerCase();
+  return (
+    lower.includes("your-instance.upstash.io") ||
+    lower.includes("build-placeholder") ||
+    lower.includes("substituir") ||
+    lower.includes("cole_")
+  );
 }
 
-export const redis: AppRedis = shouldUseMemoryRedis() ? memoryRedis : createUpstashRedis();
+export function getUpstashConfig() {
+  const url = cleanEnvValue(process.env.UPSTASH_REDIS_REST_URL);
+  const token = cleanEnvValue(process.env.UPSTASH_REDIS_REST_TOKEN);
+  if (!url || !token || isPlaceholderUpstashUrl(url)) return null;
+  return { url, token };
+}
 
-if (shouldUseMemoryRedis() && env.NODE_ENV === "development") {
+const globalForRedis = globalThis as unknown as {
+  redis?: AppRedis;
+};
+
+function createUpstashRedis(config: { url: string; token: string }): AppRedis {
+  if (!globalForRedis.redis) {
+    globalForRedis.redis = new Redis({
+      url: config.url,
+      token: config.token
+    }) as unknown as AppRedis;
+  }
+  return globalForRedis.redis;
+}
+
+function getRedisClient(): AppRedis {
+  if (shouldUseMemoryRedis()) {
+    return memoryRedis;
+  }
+
+  const config = getUpstashConfig();
+  if (!config) {
+    throw new Error(UPSTASH_NOT_CONFIGURED_MESSAGE);
+  }
+
+  return createUpstashRedis(config);
+}
+
+export const redis: AppRedis = new Proxy({} as AppRedis, {
+  get(_target, prop) {
+    const client = getRedisClient();
+    const value = client[prop as keyof AppRedis];
+    if (typeof value === "function") {
+      return (value as (...args: unknown[]) => unknown).bind(client);
+    }
+    return value;
+  }
+});
+
+if (shouldUseMemoryRedis() && process.env.NODE_ENV === "development") {
   console.info("[dev] Usando armazenamento em memória (configure Upstash no .env para persistir dados).");
 }

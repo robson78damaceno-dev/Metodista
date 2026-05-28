@@ -38,10 +38,12 @@ export async function loginAdminAction(_: ActionState, formData: FormData): Prom
 
     await setAdminSessionCookie(token);
   } catch (error) {
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Não foi possível entrar."
-    };
+    const raw = error instanceof Error ? error.message : "Não foi possível entrar.";
+    const message =
+      raw.toLowerCase().includes("fetch failed") || raw.includes("Upstash")
+        ? "Banco de dados (Upstash) não configurado na Vercel. Crie um Redis em console.upstash.com e atualize UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN."
+        : raw;
+    return { ok: false, message };
   }
 
   redirect("/admin");

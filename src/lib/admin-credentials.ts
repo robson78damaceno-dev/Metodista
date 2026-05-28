@@ -1,8 +1,8 @@
 import "server-only";
 
 import bcrypt from "bcryptjs";
-import { requireSeedAdminCredentials } from "@/lib/env";
 import { redis } from "@/lib/redis";
+import { cleanEnvValue } from "@/lib/runtime-secrets";
 
 const ADMIN_CREDENTIALS_KEY = "admin:credentials";
 const ADMIN_CREDENTIALS_VERSION_KEY = "admin:credentials:version";
@@ -46,7 +46,13 @@ export async function ensureAdminCredentials() {
   const existing = await readAdminCredentials();
   if (existing) return existing;
 
-  const { login, password } = requireSeedAdminCredentials();
+  const login = cleanEnvValue(process.env.SEED_ADMIN_LOGIN);
+  const password = cleanEnvValue(process.env.SEED_ADMIN_PASSWORD);
+  if (!login || !password) {
+    throw new Error(
+      "Conta admin não configurada. Defina SEED_ADMIN_LOGIN e SEED_ADMIN_PASSWORD na Vercel."
+    );
+  }
   const seeded: AdminCredentialsRecord = {
     email: login,
     passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
