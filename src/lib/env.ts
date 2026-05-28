@@ -61,6 +61,16 @@ function readEnvFromProcess() {
   };
 }
 
+function mergeDefined(base: Record<string, unknown>, overrides: Record<string, unknown>) {
+  const result = { ...base };
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 function hasRequiredProductionEnv() {
   return Boolean(process.env.UPSTASH_REDIS_REST_URL?.trim());
 }
@@ -71,13 +81,15 @@ function resolveEnvInput() {
     return fromProcess;
   }
 
-  const isNextBuild = process.env.npm_lifecycle_event === "build";
+  const isNextBuild =
+    process.env.npm_lifecycle_event === "build" ||
+    process.env.NEXT_PHASE === "phase-production-build";
   if (isNextBuild) {
     console.warn(
       "[build] Variáveis de ambiente ausentes — usando placeholders só para compilar. " +
         "Configure todas em Vercel → Settings → Environment Variables (Production) e faça Redeploy."
     );
-    return { ...BUILD_STUBS, ...fromProcess };
+    return mergeDefined(BUILD_STUBS, fromProcess);
   }
 
   if (process.env.VERCEL) {
