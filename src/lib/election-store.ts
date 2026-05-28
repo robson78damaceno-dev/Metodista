@@ -1,7 +1,12 @@
+import { getPublicAppUrl } from "@/lib/app-url";
 import { secureToken } from "@/lib/crypto";
 import { debugError, debugLog, logStorageContext } from "@/lib/debug-log";
 import { env } from "@/lib/env";
 import { redis } from "@/lib/redis";
+
+function votingEntryUrl(ticket: string) {
+  return `${getPublicAppUrl(env.APP_URL)}/entrar/${encodeURIComponent(ticket)}`;
+}
 
 const DEFAULT_TTL_SECONDS = 72 * 60 * 60;
 
@@ -349,7 +354,7 @@ export async function issueVotingLinkForCpf(electionId: string, cpfHash: string)
     if (payload) {
       return {
         ok: true,
-        url: `${env.APP_URL}/entrar/${existingTicket}`,
+        url: votingEntryUrl(existingTicket),
         resent: true
       };
     }
@@ -364,7 +369,7 @@ export async function issueVotingLinkForCpf(electionId: string, cpfHash: string)
 
   return {
     ok: true,
-    url: `${env.APP_URL}/entrar/${ticket}`,
+    url: votingEntryUrl(ticket),
     resent: false
   };
 }

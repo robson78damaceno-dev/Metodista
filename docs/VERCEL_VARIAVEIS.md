@@ -63,7 +63,9 @@ Causas comuns depois de cadastrar variáveis:
 |------------------------|---------|
 | `SUBSTITUIR_NO_UPSTASH` | URL real do Upstash (`https://....upstash.io`) |
 | `COPIAR_LINHA_8_DO_ENV` | Cole o valor real do `.env` (começa com `re_`) |
-| `metodista.vercel.app` | `https://metodista.vercel.app` |
+| Domínio **deste** projeto na Vercel (ex.: `metodista-ten.vercel.app`) | `https://metodista-ten.vercel.app` |
+
+**Atenção:** `metodista.vercel.app` pode estar ligado a **outro** projeto na Vercel (não é o Concílio). Se `APP_URL` apontar para um domínio errado, o link do e-mail dá **404**. Use a URL que abre a página “Concílio | Votação Anônima”.
 | Aspas no valor (`"admin@@"`) | Sem aspas: `admin@@` |
 
 Abra o log do deploy na Vercel e procure a linha com `Variáveis de ambiente inválidas` — ela mostra qual campo falhou.

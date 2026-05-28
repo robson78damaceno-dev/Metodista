@@ -6,7 +6,8 @@ import { consumeVotingTicket, getElectionDetails } from "@/lib/election-store";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request, { params }: { params: Promise<{ ticket: string }> }) {
-  const { ticket } = await params;
+  const { ticket: rawTicket } = await params;
+  const ticket = decodeURIComponent(rawTicket).trim();
 
   if (!ticket || ticket.length < 16) {
     return NextResponse.redirect(new URL("/?erro=link-invalido", request.url));
