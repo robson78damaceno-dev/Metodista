@@ -470,6 +470,15 @@ export async function submitVote(input: {
     }
   }
 
+  const yesCount = input.decisions.filter((decision) => decision.choice === "YES").length;
+  const noCount = input.decisions.filter((decision) => decision.choice === "NO").length;
+  if (yesCount > 1) {
+    throw new Error("Você só pode marcar Sim em um candidato.");
+  }
+  if (noCount > 1) {
+    throw new Error("Você só pode marcar Não em um candidato.");
+  }
+
   const spent = await redis.set(`ballot-spent:${input.tokenHash}`, "1", { nx: true, ex: DEFAULT_TTL_SECONDS });
   if (spent !== "OK") throw new Error("Você já votou nesta eleição.");
 

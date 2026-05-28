@@ -58,6 +58,15 @@ export function VoteForm({
     [candidates, decisions]
   );
 
+  const yesUsedBy = useMemo(
+    () => candidates.find((candidate) => decisions[candidate.id]?.choice === "YES")?.id ?? null,
+    [candidates, decisions]
+  );
+  const noUsedBy = useMemo(
+    () => candidates.find((candidate) => decisions[candidate.id]?.choice === "NO")?.id ?? null,
+    [candidates, decisions]
+  );
+
   const isReadyToSubmit = candidates.length > 0 && decisionsPayload.length === candidates.length;
   const decisionsJson = JSON.stringify(decisionsPayload);
 
@@ -77,9 +86,10 @@ export function VoteForm({
       </div>
 
       <p className="text-center text-sm font-medium text-muted-foreground">
-        Em cada candidato, selecione <span className="text-foreground">Sim</span>,{" "}
-        <span className="text-foreground">Não</span> ou <span className="text-foreground">Abster</span> e, se quiser,
-        escreva uma observação.
+        Você pode marcar <span className="text-foreground">Sim</span> em apenas{" "}
+        <span className="text-foreground">um</span> candidato e <span className="text-foreground">Não</span> em apenas{" "}
+        <span className="text-foreground">um</span> candidato. Os demais devem ficar como{" "}
+        <span className="text-foreground">Abster</span>.
       </p>
 
       <div className="grid gap-3">
@@ -105,22 +115,35 @@ export function VoteForm({
                       ["NO", "Não"],
                       ["ABSTAIN", "Abster"]
                     ] as const
-                  ).map(([value, label]) => (
-                    <Button
-                      key={value}
-                      type="button"
-                      size="sm"
-                      variant={decision.choice === value ? "default" : "outline"}
-                      onClick={() =>
-                        setDecisions((current) => ({
-                          ...current,
-                          [candidate.id]: { ...(current[candidate.id] ?? { feedback: "" }), choice: value }
-                        }))
-                      }
-                    >
-                      {label}
-                    </Button>
-                  ))}
+                  ).map(([value, label]) => {
+                    const disabled =
+                      (value === "YES" && yesUsedBy !== null && yesUsedBy !== candidate.id) ||
+                      (value === "NO" && noUsedBy !== null && noUsedBy !== candidate.id);
+                    return (
+                      <Button
+                        key={value}
+                        type="button"
+                        size="sm"
+                        variant={decision.choice === value ? "default" : "outline"}
+                        disabled={disabled}
+                        title={
+                          disabled
+                            ? value === "YES"
+                              ? "Você já marcou Sim em outro candidato."
+                              : "Você já marcou Não em outro candidato."
+                            : undefined
+                        }
+                        onClick={() =>
+                          setDecisions((current) => ({
+                            ...current,
+                            [candidate.id]: { ...(current[candidate.id] ?? { feedback: "" }), choice: value }
+                          }))
+                        }
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="mt-4 space-y-2">
