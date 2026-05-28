@@ -72,3 +72,11 @@ RESEND_API_KEY=re_xxxxx
 (Copie os valores do seu `.env` local, uma linha por variável.)
 
 Depois confira se **Production** está selecionado e faça **Redeploy**.
+
+## Erro do Prisma no build
+
+Se aparecer `PrismaClient` / `prisma/seed.ts`:
+
+1. Na Vercel: **Settings → Git** — confirme que o repositório é o correto (ex.: `Metodista`) e o commit recente (sem pasta `prisma/`).
+2. **Deployments** → ⋮ → **Redeploy** e marque **Clear build cache** (se existir a opção).
+3. No GitHub, abra o repositório e veja se a pasta `prisma/` ainda existe — não deve existir após o commit `Remover Prisma não utilizado`.
