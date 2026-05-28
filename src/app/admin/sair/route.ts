@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { ADMIN_COOKIE } from "@/lib/auth";
-import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const response = NextResponse.redirect(new URL("/admin/login", request.url));
+  const requestUrl = new URL(request.url);
+  const response = NextResponse.redirect(new URL("/admin/login", requestUrl.origin));
   response.cookies.set(ADMIN_COOKIE, "", {
     httpOnly: true,
-    sameSite: "strict",
-    secure: env.NODE_ENV === "production",
+    sameSite: "lax",
+    secure: requestUrl.protocol === "https:",
     path: "/",
     maxAge: 0
   });

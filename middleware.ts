@@ -123,5 +123,5 @@ function setSecurityHeaders(response: NextResponse) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|logo-metodista.png).*)"]
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|logo-metodista.png|admin/sair).*)"]
 };
