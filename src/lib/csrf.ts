@@ -23,21 +23,19 @@ export async function createCsrfToken() {
 
   const cookieStore = await cookies();
   const token = cookieStore.get(CSRF_COOKIE)?.value;
-  if (!token) {
-    throw new Error("Sessão de segurança não iniciada. Recarregue a página.");
-  }
-  return token;
+  if (token) return token;
+
+  return createSignedCsrfToken();
 }
 
 export async function assertCsrfToken(token: string) {
-  const cookieStore = await cookies();
-  const cookieToken = cookieStore.get(CSRF_COOKIE)?.value;
-
-  if (!cookieToken || !timingSafeEqual(cookieToken, token)) {
+  if (!verifySignedCsrfToken(token)) {
     throw new Error("Sessão de segurança expirada. Recarregue a página e tente novamente.");
   }
 
-  if (!verifySignedCsrfToken(token)) {
+  const cookieStore = await cookies();
+  const cookieToken = cookieStore.get(CSRF_COOKIE)?.value;
+  if (cookieToken && !timingSafeEqual(cookieToken, token)) {
     throw new Error("Sessão de segurança expirada. Recarregue a página e tente novamente.");
   }
 }
