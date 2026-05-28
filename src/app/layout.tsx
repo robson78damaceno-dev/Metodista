@@ -12,8 +12,9 @@ export const metadata: Metadata = {
   title: "Concílio | Votação Anônima",
   description: "Sistema seguro de votação anônima para concílio metodista.",
   icons: {
-    icon: "/logo-metodista.png",
-    apple: "/logo-metodista.png"
+    icon: [{ url: "/logo-metodista.png", type: "image/png" }],
+    apple: [{ url: "/logo-metodista.png", type: "image/png" }],
+    shortcut: "/favicon.ico"
   },
   robots: {
     index: false,
