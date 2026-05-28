@@ -16,8 +16,10 @@ function isPlaceholderUpstash(url: string, token: string) {
 export function shouldUseMemoryRedis() {
   const url = process.env.UPSTASH_REDIS_REST_URL ?? "";
   const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
-  if (process.env.USE_DEV_MEMORY_STORE === "true") return true;
+  // Nunca permitir store em memória fora de desenvolvimento.
+  // Isso evita perda de dados em produção/preview por configuração acidental.
   if (process.env.NODE_ENV !== "development") return false;
+  if (process.env.USE_DEV_MEMORY_STORE === "true") return true;
   return isPlaceholderUpstash(url, token);
 }
 
